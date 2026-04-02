@@ -1,6 +1,6 @@
 # umbra
 
-The Swiss-army knife of CLI generation.
+Generate full-featured CLIs from OpenAPI specs or [hey-api](https://heyapi.dev) SDKs.
 
 ## Install
 
@@ -8,17 +8,13 @@ The Swiss-army knife of CLI generation.
 bun add @ihs7/umbra
 ```
 
-## Usage
+## Quick start
 
 ### From an OpenAPI spec
-
-Generate a typed CLI module from a spec URL or local file:
 
 ```sh
 bunx umbra --openapi https://api.example.com/openapi.json --out src/cli.gen.ts
 ```
-
-Then wire it up in your entrypoint:
 
 ```ts
 import { createCli } from "./cli.gen";
@@ -29,13 +25,9 @@ await cli.run();
 
 ### From a hey-api SDK
 
-Generate a CLI registry from a [hey-api](https://heyapi.dev) generated SDK:
-
 ```sh
 bunx umbra --hey-api ./src/client --out src/cli.gen.ts
 ```
-
-Then use `fromResources` with the generated registry:
 
 ```ts
 import { fromResources } from "@ihs7/umbra";
@@ -45,9 +37,7 @@ const cli = fromResources(resources, { name: "mycli", version: "1.0.0" });
 await cli.run();
 ```
 
-### Programmatic API
-
-Build a CLI manually using `createCli`:
+### Programmatic
 
 ```ts
 import { createCli, fromSdk } from "@ihs7/umbra";
@@ -65,8 +55,6 @@ await cli.run();
 
 ## Auth
 
-Configure token-based auth via the system keychain or an environment variable:
-
 ```ts
 const cli = fromResources(resources, {
   name: "mycli",
@@ -78,34 +66,22 @@ const cli = fromResources(resources, {
 });
 ```
 
-This adds `auth login`, `auth logout`, and `auth status` commands automatically.
+Adds `auth login`, `auth logout`, and `auth status` commands. Token is read from the env var first, falling back to the system keychain.
+
+## Generate docs
+
+Generate a Markdown command reference from your spec or SDK:
 
 ```sh
-mycli auth login        # prompts for token, stores in system keychain
-mycli auth status       # shows token source and masked value
-mycli auth logout       # removes token from keychain
+bunx umbra docs --openapi https://api.example.com/openapi.json --name mycli --out COMMANDS.md
+bunx umbra docs --hey-api ./src/client --name mycli --out COMMANDS.md
 ```
-
-The token is read from the env var first, falling back to the keychain.
-
-## Configuration
-
-| Option          | Type               | Description                                      |
-| --------------- | ------------------ | ------------------------------------------------ |
-| `name`          | `string`           | CLI name used in help output                     |
-| `version`       | `string`           | Shown by `--version`                             |
-| `naming`        | `"kebab" \| "camel" \| "snake"` | Command naming strategy (default: `"kebab"`) |
-| `defaultOutput` | `"yaml" \| "json" \| "table"` | Default output format (default: `"yaml"`) |
-| `auth`          | `CliAuthConfig`    | Token auth configuration                         |
-| `commands`      | `CliResource[]`    | Additional resource/action groups                |
-| `setup`         | `() => Promise<void>` | Called before each authenticated command      |
 
 ## CLI flags
 
 Every generated command supports:
 
-```
---<param>   Set a parameter value
+```text
 --output    Output format: yaml (default), json, table
 --help      Show usage for a command
 --version   Show CLI version
