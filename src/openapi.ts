@@ -128,16 +128,25 @@ function methodToAction(method: string): string {
   return map[method] ?? method;
 }
 
+function stripPathPrefix(path: string, prefix: string): string {
+  const normalized = prefix.replace(/\/$/, "");
+  if (!normalized) return path;
+  if (path === normalized || path.startsWith(normalized + "/")) {
+    return path.slice(normalized.length) || "/";
+  }
+  return path;
+}
+
 function actionFromPath(path: string, method: string): string {
   const segments = path
     .replace(/^\//, "")
     .split("/")
     .slice(1)
-    .filter((s) => !s.startsWith("{"));
+    .filter((s) => s.length > 0 && !s.startsWith("{"));
 
   if (segments.length > 0) return segments.join("-");
 
-  const endsWithParam = path.endsWith("}");
+  const endsWithParam = path.replace(/\/$/, "").endsWith("}");
   if (method === "get" && endsWithParam) return "get";
 
   return methodToAction(method);
@@ -147,7 +156,8 @@ function resourceFromPath(path: string): string {
   return (
     path
       .replace(/^\//, "")
-      .split("/")[0]
+      .split("/")
+      .filter((s) => s.length > 0)[0]
       ?.replace(/([a-z])([A-Z])/g, "$1-$2")
       .toLowerCase() ?? path
   );
@@ -165,6 +175,11 @@ export interface FromSpecOptions {
   baseUrl?: string;
   headers?: Record<string, string>;
   validate?: boolean;
+  /** Strip a path prefix from all routes before deriving resource and action names.
+   * For example, with `stripPrefix: "/api/v1"`, the path `/api/v1/users/{id}` is
+   * treated as `/users/{id}`, yielding resource `users` and action `get`.
+   */
+  stripPrefix?: string;
 }
 
 export type SpecSource = string | OApiSpec;
@@ -213,18 +228,20 @@ export interface RouteEntry {
   operationId?: string;
 }
 
-export function extractRoutes(spec: OApiSpec): RouteEntry[] {
+export function extractRoutes(spec: OApiSpec, options?: { stripPrefix?: string }): RouteEntry[] {
   const defaultBaseUrl = (spec.servers?.[0]?.url ?? "http://localhost:3000").replace(/\/$/, "");
+  const prefix = options?.stripPrefix ?? "";
   const seen = new Set<string>();
   const routes: RouteEntry[] = [];
 
   for (const [path, methods] of Object.entries(spec.paths)) {
-    const resource = resourceFromPath(path);
+    const effectivePath = prefix ? stripPathPrefix(path, prefix) : path;
+    const resource = resourceFromPath(effectivePath);
 
     for (const [method, value] of Object.entries(methods)) {
       if (!HTTP_METHODS.has(method)) continue;
       const operation = value as OApiOperation;
-      const action = actionFromPath(path, method);
+      const action = actionFromPath(effectivePath, method);
       const key = `${resource}:${action}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -319,7 +336,7 @@ function buildResources(
 
   const resources: Record<string, Record<string, CliCommand>> = {};
 
-  for (const route of extractRoutes(spec)) {
+  for (const route of extractRoutes(spec, { stripPrefix: options?.stripPrefix })) {
     const { resource, action, path, method, description, params } = route;
     if (!resources[resource]) resources[resource] = {};
 

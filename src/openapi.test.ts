@@ -2,7 +2,7 @@ import { describe, it, expect } from "bun:test";
 import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { fromSpec } from "./openapi";
+import { fromSpec, extractRoutes } from "./openapi";
 
 function writeSpec(spec: object): { path: string; cleanup: () => void } {
   const dir = mkdtempSync(join(tmpdir(), "oapi-test-"));
@@ -200,5 +200,76 @@ describe("fromSpec", () => {
     } finally {
       cleanup();
     }
+  });
+});
+
+const versionedSpec = {
+  openapi: "3.0.3",
+  info: { title: "Versioned API", version: "1.0.0" },
+  servers: [{ url: "https://api.example.com" }],
+  paths: {
+    "/api/v1/users": {
+      get: { summary: "List users" },
+      post: { summary: "Create user" },
+    },
+    "/api/v1/users/{id}": {
+      get: {
+        summary: "Get user",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+      },
+      delete: {
+        summary: "Delete user",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+      },
+    },
+    "/api/v1/orders": {
+      get: { summary: "List orders" },
+    },
+  },
+};
+
+describe("extractRoutes with stripPrefix", () => {
+  it("strips a path prefix when deriving resource names", () => {
+    const routes = extractRoutes(versionedSpec, { stripPrefix: "/api/v1" });
+    const resources = [...new Set(routes.map((r) => r.resource))];
+    expect(resources).toContain("users");
+    expect(resources).toContain("orders");
+    expect(resources).not.toContain("api");
+  });
+
+  it("derives correct action names after prefix stripping", () => {
+    const routes = extractRoutes(versionedSpec, { stripPrefix: "/api/v1" });
+    const userRoutes = routes.filter((r) => r.resource === "users");
+    const actions = userRoutes.map((r) => r.action);
+    expect(actions).toContain("list");
+    expect(actions).toContain("create");
+    expect(actions).toContain("get");
+    expect(actions).toContain("delete");
+  });
+
+  it("preserves the original path in route entries for URL construction", () => {
+    const routes = extractRoutes(versionedSpec, { stripPrefix: "/api/v1" });
+    const listUsers = routes.find((r) => r.resource === "users" && r.action === "list");
+    expect(listUsers?.path).toBe("/api/v1/users");
+  });
+
+  it("handles prefix with trailing slash", () => {
+    const routes = extractRoutes(versionedSpec, { stripPrefix: "/api/v1/" });
+    const resources = [...new Set(routes.map((r) => r.resource))];
+    expect(resources).toContain("users");
+    expect(resources).not.toContain("api");
+  });
+
+  it("no-ops when prefix does not match any path", () => {
+    const routes = extractRoutes(versionedSpec, { stripPrefix: "/other" });
+    const resources = [...new Set(routes.map((r) => r.resource))];
+    expect(resources).toContain("api");
+  });
+
+  it("passes stripPrefix through fromSpec options", async () => {
+    const resources = await fromSpec(versionedSpec, { stripPrefix: "/api/v1" });
+    expect(Object.keys(resources)).toContain("users");
+    expect(Object.keys(resources)).toContain("orders");
+    expect(Object.keys(resources)).not.toContain("api");
   });
 });
