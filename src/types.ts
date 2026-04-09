@@ -35,10 +35,16 @@ export interface CliCommand {
   }) => Promise<unknown>;
 }
 
+export interface CliExclude {
+  resource: string;
+  action?: string;
+}
+
 export interface CliResource {
   name: string;
   actions: Record<string, CliCommand>;
   public?: boolean;
+  override?: boolean;
 }
 
 export interface CliAuthConfig {
@@ -57,5 +63,6 @@ export interface CliConfig {
   introspector?: SchemaIntrospector;
   setup?: () => Promise<void>;
   commands?: CliResource[];
+  exclude?: CliExclude[];
   auth?: CliAuthConfig;
 }
