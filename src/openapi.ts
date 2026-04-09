@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
 import { createValidator } from "./validate";
+import { HttpError } from "./types";
 import type { CliCommand, CliParam, ParamKind, ParamLocation } from "./types";
 
 interface OApiParam {
@@ -301,7 +302,13 @@ function makeHandler(
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`${res.status} ${res.statusText}: ${text}`);
+      let body: unknown;
+      try {
+        body = JSON.parse(text);
+      } catch {
+        body = text;
+      }
+      throw new HttpError(res.status, res.statusText, body);
     }
 
     const contentType = res.headers.get("content-type") ?? "";
