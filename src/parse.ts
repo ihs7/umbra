@@ -19,6 +19,8 @@ export function parseArgv(
   const flags: Record<string, string | string[]> = {};
   let outputFormat = defaultOutput;
   const shortFlags = buildShortFlags(params);
+  const positionals = params.filter((p) => p.positional);
+  let positionalIdx = 0;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
@@ -38,6 +40,8 @@ export function parseArgv(
       if (!resolved) continue;
       key = resolved;
     } else {
+      const positional = positionals[positionalIdx++];
+      if (positional) flags[toKebab(positional.name)] = arg;
       continue;
     }
 
@@ -88,7 +92,24 @@ export function buildArgs(
     const kebab = toKebab(param.name);
     const value = flags[kebab] ?? flags[param.name];
     if (value === undefined) {
-      if (param.required) throw new Error(`Missing required flag: --${kebab}`);
+      if (param.default !== undefined) {
+        const coerced = introspector.coerceValue(String(param.default), param);
+        switch (param.location) {
+          case "path":
+            path[param.name] = coerced;
+            break;
+          case "query":
+            query[param.name] = coerced;
+            break;
+          case "body":
+            body[param.name] = coerced;
+            break;
+        }
+      } else if (param.required) {
+        throw new Error(
+          `Missing required argument: ${param.positional ? `<${kebab}>` : `--${kebab}`}`,
+        );
+      }
       continue;
     }
     const coerced = introspector.coerceValue(value, param);
@@ -120,8 +141,14 @@ export function formatUsage(name: string, params: CliParam[], defaultOutput: str
   const shortFlags = buildShortFlags(params);
   const shortByKebab = Object.fromEntries(Object.entries(shortFlags).map(([k, v]) => [v, k]));
 
+  const positionals = params.filter((p) => p.positional);
+  const flagParams = params.filter((p) => !p.positional);
+
+  const positionalUsage = positionals.map((p) => `<${toKebab(p.name)}>`).join(" ");
+  const usageLine = `Usage: ${name}${positionalUsage ? ` ${positionalUsage}` : ""} [options]\n`;
+
   const allFlags = [
-    ...params.map((p) => {
+    ...flagParams.map((p) => {
       const kebab = toKebab(p.name);
       const short = shortByKebab[kebab];
       const flagStr = short
@@ -129,7 +156,13 @@ export function formatUsage(name: string, params: CliParam[], defaultOutput: str
         : `--${kebab} ${p.kind === "array" ? "<value...>" : "<value>"}`;
       return {
         flag: flagStr,
-        desc: [p.description, p.required ? "(required)" : ""].filter(Boolean).join(" "),
+        desc: [
+          p.description,
+          p.required ? "(required)" : "",
+          p.default !== undefined ? `(default: ${p.default})` : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
       };
     }),
     {
@@ -141,7 +174,7 @@ export function formatUsage(name: string, params: CliParam[], defaultOutput: str
 
   const maxFlag = Math.max(...allFlags.map((f) => f.flag.length));
 
-  const lines = [`Usage: ${name} [options]\n`, "Options:\n"];
+  const lines = [usageLine, "Options:\n"];
   for (const { flag, desc } of allFlags) {
     lines.push(`  ${pad(flag, maxFlag + 2)}${desc}`);
   }

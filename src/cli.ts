@@ -4,6 +4,8 @@ import { defaultFormatter } from "./format";
 import { zodIntrospector } from "./introspect-zod";
 import { keychain } from "./keychain";
 import { resolveAuthDefaults, authCommand } from "./auth";
+import { fromSpec } from "./openapi";
+import type { SpecSource } from "./openapi";
 import type {
   CliConfig,
   CliCommand,
@@ -36,9 +38,9 @@ export function createCli(
   function resource(
     name: string,
     actions: Record<string, CliCommand>,
-    opts?: { public?: boolean },
+    opts?: { public?: boolean; replace?: boolean },
   ) {
-    registry[name] = { ...registry[name], ...actions };
+    registry[name] = opts?.replace ? { ...actions } : { ...registry[name], ...actions };
     if (opts?.public) meta[name] = { public: true };
   }
 
@@ -211,11 +213,7 @@ export function fromResources(
   }
 
   for (const { name, actions, public: pub, override: ovr } of config.commands ?? []) {
-    if (ovr) {
-      // Remove the entire spec resource so the custom command is the sole definition
-      delete cli.registry[name];
-    }
-    cli.resource(name, actions, { public: pub });
+    cli.resource(name, actions, { public: pub, replace: ovr });
   }
 
   if (config.auth) {
@@ -223,4 +221,17 @@ export function fromResources(
     cli.resource(name, actions, { public: pub });
   }
   return cli;
+}
+
+export async function fromOpenApi(
+  source: SpecSource,
+  config: CliConfig,
+  configureFn?: (headers: Record<string, string>) => void,
+) {
+  const resources = await fromSpec(source, {
+    stripPrefix: config.stripPrefix,
+    baseUrl: config.baseUrl,
+    validate: config.validate,
+  });
+  return fromResources(resources, config, configureFn);
 }

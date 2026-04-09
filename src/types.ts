@@ -18,6 +18,8 @@ export interface CliParam {
   kind: ParamKind;
   required: boolean;
   description?: string;
+  positional?: boolean;
+  default?: unknown;
 }
 
 export interface SchemaIntrospector {
@@ -44,6 +46,9 @@ export interface CliResource {
   name: string;
   actions: Record<string, CliCommand>;
   public?: boolean;
+}
+
+export interface CliCommandEntry extends CliResource {
   override?: boolean;
 }
 
@@ -62,7 +67,10 @@ export interface CliConfig {
   formatter?: OutputFormatter;
   introspector?: SchemaIntrospector;
   setup?: () => Promise<void>;
-  commands?: CliResource[];
+  commands?: CliCommandEntry[];
   exclude?: CliExclude[];
   auth?: CliAuthConfig;
+  stripPrefix?: string;
+  baseUrl?: string;
+  validate?: boolean;
 }

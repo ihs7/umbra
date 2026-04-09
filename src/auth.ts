@@ -17,14 +17,35 @@ export function withAuth(auth: CliAuthConfig, handler: AuthedHandler): CliComman
 
 async function promptToken(): Promise<string | undefined> {
   process.stdout.write("Enter API token: ");
-  const line = await new Promise<string>((resolve) => {
+  const token = await new Promise<string>((resolve) => {
+    const chunks: string[] = [];
     process.stdin.resume();
-    process.stdin.once("data", (chunk: Buffer) => {
-      process.stdin.pause();
-      resolve(chunk.toString());
+    process.stdin.setRawMode(true);
+    process.stdin.on("data", function handler(buf: Buffer) {
+      const char = buf.toString();
+      if (char === "\r" || char === "\n") {
+        process.stdin.setRawMode(false);
+        process.stdin.pause();
+        process.stdin.off("data", handler);
+        process.stdout.write("\n");
+        resolve(chunks.join(""));
+      } else if (char === "\u0003") {
+        process.stdout.write("\n");
+        process.exit(1);
+      } else if (char === "\u007f") {
+        if (chunks.length > 0) {
+          chunks.pop();
+          process.stdout.write("\b \b");
+        }
+      } else {
+        for (const c of char) {
+          chunks.push(c);
+          process.stdout.write("*");
+        }
+      }
     });
   });
-  return line.trim() || undefined;
+  return token.trim() || undefined;
 }
 
 export function resolveAuthDefaults(cliName: string, auth: CliAuthConfig) {
