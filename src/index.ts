@@ -1,4 +1,4 @@
-export { createCli, fromResources, fromOpenApi } from "./cli";
+export { createCli, fromResources } from "./cli";
 export { keychain } from "./keychain";
 export { authCommand, resolveAuthDefaults, withAuth } from "./auth";
 export { fromSdk } from "./sdk";
