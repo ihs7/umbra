@@ -2,6 +2,10 @@
   "name": "@ihs7/umbra",
   "version": "0.6.0",
   "description": "The Swiss-army knife of CLI generation",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ihs7/umbra"
+  },
   "license": "MIT",
   "type": "module",
   "exports": {
