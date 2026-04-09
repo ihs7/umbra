@@ -1,9 +1,11 @@
+import { stringify as yamlStringify } from "yaml";
 import { parseArgv, buildArgs, formatUsage } from "./parse";
 import { findMatch, formatName } from "./naming";
 import { defaultFormatter } from "./format";
 import { zodIntrospector } from "./introspect-zod";
 import { keychain } from "./keychain";
 import { resolveAuthDefaults, authCommand } from "./auth";
+import { HttpError } from "./types";
 import type {
   CliConfig,
   CliCommand,
@@ -16,6 +18,15 @@ import type {
 
 type Registry = Record<string, Record<string, CliCommand>>;
 type RegistryMeta = Record<string, { public?: boolean }>;
+
+function formatError(e: HttpError, format: OutputFormat): string {
+  const body =
+    e.body && typeof e.body === "object" && !Array.isArray(e.body) ? e.body : { detail: e.body };
+  const err = { error: e.statusText, status: e.status, ...body };
+  if (format === "json") return JSON.stringify(err, null, 2);
+  if (format === "yaml") return yamlStringify(err).trimEnd();
+  return `${e.status} ${e.statusText}: ${typeof e.body === "string" ? e.body : JSON.stringify(e.body)}`;
+}
 
 function pad(s: string, width: number): string {
   return s + " ".repeat(Math.max(0, width - s.length));
@@ -166,12 +177,19 @@ export function createCli(
       if (config.setup) await config.setup();
     }
 
-    const result = await cmd.handler(args);
-
-    if (result === undefined || result === null) {
-      fmt.print("Done.");
-      return;
+    let result;
+    try {
+      result = await cmd.handler(args);
+    } catch (e) {
+      if (e instanceof HttpError) {
+        fmt.error(formatError(e, outputFormat as OutputFormat));
+      } else {
+        fmt.error((e as Error).message + "\n");
+      }
+      process.exit(1);
     }
+
+    if (result === undefined || result === null) return;
 
     if (Array.isArray(result)) {
       fmt.output(result as Record<string, unknown>[], outputFormat as OutputFormat);

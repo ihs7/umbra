@@ -2,6 +2,7 @@ import { describe, it, expect, mock } from "bun:test";
 import { z } from "zod";
 import { createCli, fromResources } from "./cli";
 import { fromSdk } from "./sdk";
+import { HttpError } from "./types";
 
 const playerSchema = z.object({
   path: z.object({ id: z.string() }),
@@ -182,13 +183,81 @@ describe("error handling", () => {
     expect(out.errors.some((e) => e.includes("delete"))).toBe(true);
   });
 
-  it("propagates sdk errors", async () => {
+  it("prints sdk errors to stderr and exits", async () => {
     const out = makeOutput();
     const cli = makeCli(out);
     cli.resource("players", {
       get: fromSdk(playerSchema, async () => ({ error: "not found" }), "Get a player"),
     });
-    await expect(cli.run(["players", "get", "--id", "99"])).rejects.toThrow("not found");
+    const origExit = process.exit;
+    process.exit = (() => {
+      throw new Error("exit:1");
+    }) as never;
+    try {
+      await cli.run(["players", "get", "--id", "99"]);
+    } catch (e) {
+      expect((e as Error).message).toBe("exit:1");
+    } finally {
+      process.exit = origExit;
+    }
+    expect(out.errors.some((e) => e.includes("not found"))).toBe(true);
+  });
+
+  it("formats HttpError as yaml by default", async () => {
+    const out = makeOutput();
+    const cli = makeCli(out);
+    cli.resource("products", {
+      list: {
+        description: "List",
+        params: [],
+        handler: async () => {
+          throw new HttpError(404, "Not Found", { detail: "No match." });
+        },
+      },
+    });
+    const origExit = process.exit;
+    process.exit = (() => {
+      throw new Error("exit:1");
+    }) as never;
+    try {
+      await cli.run(["products", "list"]);
+    } catch (e) {
+      expect((e as Error).message).toBe("exit:1");
+    } finally {
+      process.exit = origExit;
+    }
+    expect(out.errors[0]).toContain("404");
+    expect(out.errors[0]).toContain("Not Found");
+    expect(out.errors[0]).toContain("No match.");
+  });
+
+  it("formats HttpError as json when --output json", async () => {
+    const out = makeOutput();
+    const cli = makeCli(out);
+    cli.resource("products", {
+      list: {
+        description: "List",
+        params: [],
+        handler: async () => {
+          throw new HttpError(404, "Not Found", { detail: "No match." });
+        },
+      },
+    });
+    const origExit = process.exit;
+    process.exit = (() => {
+      throw new Error("exit:1");
+    }) as never;
+    try {
+      await cli.run(["products", "list", "--output", "json"]);
+    } catch (e) {
+      expect((e as Error).message).toBe("exit:1");
+    } finally {
+      process.exit = origExit;
+    }
+    const parsed = JSON.parse(out.errors[0]!);
+    expect(parsed.status).toBe(404);
+    expect(parsed.error).toBe("Not Found");
+    expect(parsed.detail).toBe("No match.");
   });
 });
 

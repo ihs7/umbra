@@ -5,6 +5,7 @@ export { fromSdk } from "./sdk";
 export { fromSpec } from "./openapi";
 export { defaultFormatter } from "./format";
 export { zodIntrospector } from "./introspect-zod";
+export { HttpError } from "./types";
 export type {
   CliConfig,
   CliAuthConfig,
