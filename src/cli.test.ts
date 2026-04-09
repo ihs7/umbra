@@ -1,6 +1,6 @@
 import { describe, it, expect, mock } from "bun:test";
 import { z } from "zod";
-import { createCli } from "./cli";
+import { createCli, fromResources } from "./cli";
 import { fromSdk } from "./sdk";
 
 const playerSchema = z.object({
@@ -189,5 +189,99 @@ describe("error handling", () => {
       get: fromSdk(playerSchema, async () => ({ error: "not found" }), "Get a player"),
     });
     await expect(cli.run(["players", "get", "--id", "99"])).rejects.toThrow("not found");
+  });
+});
+
+const specResources = {
+  players: {
+    get: fromSdk(playerSchema, async () => ({ data: { id: "1" } }), "Get a player"),
+    delete: fromSdk(playerSchema, async () => ({ data: null }), "Delete a player"),
+    list: fromSdk(listPlayersSchema, async () => ({ data: { results: [] } }), "List players"),
+  },
+  teams: {
+    list: fromSdk(listPlayersSchema, async () => ({ data: { results: [] } }), "List teams"),
+    get: fromSdk(listPlayersSchema, async () => ({ data: { results: [] } }), "Get team"),
+  },
+};
+
+describe("exclude", () => {
+  it("excludes a whole resource", async () => {
+    const out = makeOutput();
+    const cli = fromResources(specResources, {
+      name: "mycli",
+      formatter: out.formatter,
+      exclude: [{ resource: "teams" }],
+    });
+    await cli.run(["--help"]);
+    expect(out.lines.some((l) => l.includes("players"))).toBe(true);
+    expect(out.lines.every((l) => !l.includes("teams"))).toBe(true);
+  });
+
+  it("excludes a specific action from a resource", async () => {
+    const out = makeOutput();
+    const cli = fromResources(specResources, {
+      name: "mycli",
+      formatter: out.formatter,
+      exclude: [{ resource: "players", action: "delete" }],
+    });
+    await cli.run(["players", "--help"]);
+    expect(out.lines.some((l) => l.includes("get"))).toBe(true);
+    expect(out.lines.some((l) => l.includes("list"))).toBe(true);
+    expect(out.lines.every((l) => !l.includes("delete"))).toBe(true);
+  });
+
+  it("keeps other resources intact when excluding one action", async () => {
+    const out = makeOutput();
+    const cli = fromResources(specResources, {
+      name: "mycli",
+      formatter: out.formatter,
+      exclude: [{ resource: "players", action: "delete" }],
+    });
+    await cli.run(["--help"]);
+    expect(out.lines.some((l) => l.includes("teams"))).toBe(true);
+  });
+});
+
+describe("override", () => {
+  it("replaces a spec action with a custom command", async () => {
+    const customHandler = mock(async () => ({ data: { id: "custom" } }));
+    const out = makeOutput();
+    const cli = fromResources(specResources, {
+      name: "mycli",
+      formatter: out.formatter,
+      commands: [
+        {
+          name: "players",
+          override: true,
+          actions: {
+            get: fromSdk(playerSchema, customHandler, "Custom get player"),
+          },
+        },
+      ],
+    });
+    await cli.run(["players", "get", "--id", "1"]);
+    expect(customHandler).toHaveBeenCalled();
+  });
+
+  it("replaces the entire spec resource, not just matching actions", async () => {
+    const out = makeOutput();
+    const cli = fromResources(specResources, {
+      name: "mycli",
+      formatter: out.formatter,
+      commands: [
+        {
+          name: "players",
+          override: true,
+          actions: {
+            get: fromSdk(playerSchema, async () => ({ data: { id: "custom" } }), "Custom get"),
+          },
+        },
+      ],
+    });
+    await cli.run(["players", "--help"]);
+    // Only the custom action should be present; spec actions are wiped
+    expect(out.lines.some((l) => l.includes("get"))).toBe(true);
+    expect(out.lines.every((l) => !l.includes("list"))).toBe(true);
+    expect(out.lines.every((l) => !l.includes("delete"))).toBe(true);
   });
 });

@@ -7,6 +7,7 @@ import { resolveAuthDefaults, authCommand } from "./auth";
 import type {
   CliConfig,
   CliCommand,
+  CliExclude,
   OutputFormat,
   OutputFormatter,
   NamingStrategy,
@@ -190,12 +191,33 @@ export function fromResources(
   configureFn?: (headers: Record<string, string>) => void,
 ) {
   const cli = createCli(config, configureFn);
+  const excludes: CliExclude[] = config.exclude ?? [];
+
   for (const [name, actions] of Object.entries(resources)) {
-    cli.resource(name, actions);
+    // Check if the entire resource is excluded
+    const resourceExcluded = excludes.some((e) => e.resource === name && e.action === undefined);
+    if (resourceExcluded) continue;
+
+    // Filter out individually excluded actions
+    const filteredActions = Object.fromEntries(
+      Object.entries(actions).filter(
+        ([action]) => !excludes.some((e) => e.resource === name && e.action === action),
+      ),
+    );
+
+    if (Object.keys(filteredActions).length > 0) {
+      cli.resource(name, filteredActions);
+    }
   }
-  for (const { name, actions, public: pub } of config.commands ?? []) {
+
+  for (const { name, actions, public: pub, override: ovr } of config.commands ?? []) {
+    if (ovr) {
+      // Remove the entire spec resource so the custom command is the sole definition
+      delete cli.registry[name];
+    }
     cli.resource(name, actions, { public: pub });
   }
+
   if (config.auth) {
     const { name, actions, public: pub } = authCommand(config.name, config.auth);
     cli.resource(name, actions, { public: pub });

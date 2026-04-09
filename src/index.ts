@@ -9,6 +9,7 @@ export type {
   CliConfig,
   CliAuthConfig,
   CliResource,
+  CliExclude,
   CliCommand,
   OutputFormat,
   OutputFormatter,
