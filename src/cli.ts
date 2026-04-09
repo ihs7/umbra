@@ -4,8 +4,6 @@ import { defaultFormatter } from "./format";
 import { zodIntrospector } from "./introspect-zod";
 import { keychain } from "./keychain";
 import { resolveAuthDefaults, authCommand } from "./auth";
-import { fromSpec } from "./openapi";
-import type { SpecSource } from "./openapi";
 import type {
   CliConfig,
   CliCommand,
@@ -221,17 +219,4 @@ export function fromResources(
     cli.resource(name, actions, { public: pub });
   }
   return cli;
-}
-
-export async function fromOpenApi(
-  source: SpecSource,
-  config: CliConfig,
-  configureFn?: (headers: Record<string, string>) => void,
-) {
-  const resources = await fromSpec(source, {
-    stripPrefix: config.stripPrefix,
-    baseUrl: config.baseUrl,
-    validate: config.validate,
-  });
-  return fromResources(resources, config, configureFn);
 }

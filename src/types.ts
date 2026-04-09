@@ -70,7 +70,4 @@ export interface CliConfig {
   commands?: CliCommandEntry[];
   exclude?: CliExclude[];
   auth?: CliAuthConfig;
-  stripPrefix?: string;
-  baseUrl?: string;
-  validate?: boolean;
 }
