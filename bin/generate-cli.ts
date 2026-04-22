@@ -268,13 +268,30 @@ async function generateSpecModule(
   ];
 
   const opNames: Array<{ opName: string; resource: string; action: string }> = [];
+  const seenOpNames = new Set<string>();
+
+  function deriveOpName(route: RouteEntry): string {
+    // First, try operationId if present
+    let baseName: string | undefined;
+    if (route.operationId) {
+      baseName = route.operationId.charAt(0).toLowerCase() + route.operationId.slice(1);
+    }
+
+    // If no collision, use the base name
+    if (baseName && !seenOpNames.has(baseName)) {
+      seenOpNames.add(baseName);
+      return safeIdentifier(baseName);
+    }
+
+    // Otherwise, include resource prefix for uniqueness and clarity
+    const resourceCamel = route.resource.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+    const prefixedName = `${resourceCamel}${route.action.charAt(0).toUpperCase()}${route.action.slice(1)}`;
+    seenOpNames.add(prefixedName);
+    return safeIdentifier(prefixedName);
+  }
 
   for (const route of routes) {
-    const opName = safeIdentifier(
-      route.operationId
-        ? route.operationId.charAt(0).toLowerCase() + route.operationId.slice(1)
-        : `${route.action}${route.resource.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()).replace(/^./, (c: string) => c.toUpperCase())}`,
-    );
+    const opName = deriveOpName(route);
 
     opNames.push({ opName, resource: route.resource, action: route.action });
 
