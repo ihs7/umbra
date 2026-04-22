@@ -1,6 +1,6 @@
 {
   "name": "@ihs7/umbra",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "The Swiss-army knife of CLI generation",
   "repository": {
     "type": "git",
