@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { loadSpec, extractRoutes } from "../src/openapi";
+import { safeIdentifier } from "../src/naming";
 import type { RouteEntry } from "../src/openapi";
 
 function toKebab(s: string): string {
@@ -269,9 +270,11 @@ async function generateSpecModule(
   const opNames: Array<{ opName: string; resource: string; action: string }> = [];
 
   for (const route of routes) {
-    const opName = route.operationId
-      ? route.operationId.charAt(0).toLowerCase() + route.operationId.slice(1)
-      : `${route.action}${route.resource.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()).replace(/^./, (c: string) => c.toUpperCase())}`;
+    const opName = safeIdentifier(
+      route.operationId
+        ? route.operationId.charAt(0).toLowerCase() + route.operationId.slice(1)
+        : `${route.action}${route.resource.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()).replace(/^./, (c: string) => c.toUpperCase())}`,
+    );
 
     opNames.push({ opName, resource: route.resource, action: route.action });
 

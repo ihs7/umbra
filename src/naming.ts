@@ -1,5 +1,58 @@
 import type { NamingStrategy } from "./types";
 
+const RESERVED_WORDS = new Set([
+  "break",
+  "case",
+  "catch",
+  "class",
+  "const",
+  "continue",
+  "debugger",
+  "default",
+  "delete",
+  "do",
+  "else",
+  "enum",
+  "export",
+  "extends",
+  "false",
+  "finally",
+  "for",
+  "function",
+  "if",
+  "import",
+  "in",
+  "instanceof",
+  "interface",
+  "let",
+  "new",
+  "null",
+  "package",
+  "private",
+  "protected",
+  "public",
+  "return",
+  "static",
+  "super",
+  "switch",
+  "this",
+  "throw",
+  "true",
+  "try",
+  "typeof",
+  "var",
+  "void",
+  "while",
+  "with",
+  "yield",
+  "await",
+  "implements",
+]);
+
+export function safeIdentifier(name: string): string {
+  return RESERVED_WORDS.has(name) ? `${name}_` : name;
+}
+
 export function toKebab(s: string): string {
   return s
     .replace(/([a-z])([A-Z])/g, "$1-$2")
