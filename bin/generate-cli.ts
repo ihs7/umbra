@@ -178,7 +178,7 @@ function parseArgs(argv: string[]): {
 
   if (!heyApiDir) {
     console.error(
-      "Usage: zod-cli --hey-api <dir> [--out <path>] [--sdk-prefix <prefix>] [--package <name>]",
+      "Usage: umbra --hey-api <dir> [--out <path>] [--sdk-prefix <prefix>] [--package <name>]",
     );
     process.exit(1);
   }

@@ -7,7 +7,7 @@ export default defineConfig([
     dts: true,
     clean: true,
     splitting: false,
-    target: "node18",
+    target: "node22",
     outDir: "dist",
   },
   {
@@ -16,7 +16,7 @@ export default defineConfig([
     dts: false,
     clean: false,
     splitting: false,
-    target: "node18",
+    target: "node22",
     outDir: "dist",
     banner: { js: "#!/usr/bin/env node" },
   },

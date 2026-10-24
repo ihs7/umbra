@@ -2,6 +2,10 @@
 
 Generate full-featured CLIs from OpenAPI specs or [hey-api](https://heyapi.dev) SDKs.
 
+## Requirements
+
+- Node.js 22+ (or Bun 1.4+)
+
 ## Install
 
 ```sh
@@ -66,7 +70,9 @@ const cli = fromResources(resources, {
 });
 ```
 
-Adds `auth login`, `auth logout`, and `auth status` commands. Token is read from the env var first, falling back to the system keychain.
+Adds `auth login`, `auth logout`, and `auth status` commands. The token is read
+from the env var first, falling back to the system keychain (macOS `security`
+keychain).
 
 ## Generate docs
 
@@ -77,6 +83,18 @@ bunx umbra docs --openapi https://api.example.com/openapi.json --name mycli --ou
 bunx umbra docs --hey-api ./src/client --name mycli --out COMMANDS.md
 ```
 
+## Generator flags
+
+| Flag                      | Applies to                | Description                                                       |
+| ------------------------- | ------------------------- | ----------------------------------------------------------------- |
+| `--openapi <url-or-path>` | generator, docs           | OpenAPI spec source                                               |
+| `--hey-api <dir>`         | generator, docs           | Directory containing a hey-api SDK                                |
+| `--out <path>`            | generator, docs           | Output file (defaults to `cli.gen.ts`, or `COMMANDS.md` for docs) |
+| `--package <name>`        | generator                 | Package to import from in generated code (default: `@ihs7/umbra`) |
+| `--sdk-prefix <prefix>`   | generator (hey-api)       | Import prefix for SDK modules (default: `./`)                     |
+| `--strip-prefix <prefix>` | generator, docs (OpenAPI) | Strip a path prefix when deriving resource names                  |
+| `--name <cli-name>`       | docs                      | CLI name used in the generated reference (default: `cli`)         |
+
 ## CLI flags
 
 Every generated command supports:
@@ -86,6 +104,17 @@ Every generated command supports:
 --help      Show usage for a command
 --version   Show CLI version
 ```
+
+## Development
+
+```sh
+bun install
+bun run check   # format, typecheck, lint, test, and build
+```
+
+Individual scripts: `bun run format`, `bun run typecheck`, `bun run lint`,
+`bun test`, `bun run build`. Use `bun run lint:fix` to apply automatic lint
+fixes and `bun run test:coverage` to collect coverage.
 
 ## License
 
